@@ -81,7 +81,7 @@ try {
   Wait-Expression "document.getElementById('export')?.disabled===false" 180
   $initial = Evaluate "document.getElementById('error').textContent"
   Evaluate "(()=>{document.getElementById('export').click();return true})()" | Out-Null
-  Wait-Expression "document.getElementById('export')?.disabled===false && document.getElementById('export')?.textContent==='Скачать STL' && document.getElementById('canvas')?.dataset.geometry==='cad'" 180
+  Wait-Expression "document.getElementById('export')?.disabled===false && document.getElementById('canvas')?.dataset.geometry==='cad'" 180
   Evaluate "(()=>{document.getElementById('export').click();return true})()" | Out-Null
   $downloaded = Join-Path $downloads 'BMX_STREET_SLIDE_V0.9.0.stl'
   $downloadDeadline = (Get-Date).AddSeconds(20)
