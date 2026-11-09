@@ -1,0 +1,37 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>BMX STREET SLIDE — V0.9.0 CAD</title><style>body{margin:0;background:#0d1420;color:#edf4ff;font:15px system-ui}header{padding:15px 18px;border-bottom:1px solid #2b3c50}h1{font-size:19px;margin:0}small{color:#a7b8ca}main{display:grid;grid-template-columns:minmax(270px,340px) 1fr;min-height:calc(100dvh - 65px)}aside{padding:15px;overflow:auto;background:#152131}label{display:flex;justify-content:space-between;margin:13px 0 5px}input{width:100%;accent-color:#5bbcf5}button{background:#56b5ec;color:#07121d;border:0;border-radius:9px;padding:13px 16px;font-weight:700;width:100%;margin-top:12px}button.secondary{background:#2b425a;color:#fff}.note{font-size:12px;color:#c3d2e2;line-height:1.5;margin-top:16px}#view{position:relative;min-height:380px}#canvas{position:absolute;inset:0}#hint{position:absolute;bottom:12px;left:14px;font-size:12px;color:#a8b8c9;pointer-events:none}#error{color:#ffb59f;font-size:12px;margin-top:9px}select{background:#23374d;color:white;padding:8px;border:1px solid #50637a;border-radius:6px}@media(max-width:700px){main{display:flex;flex-direction:column-reverse}#view{height:44dvh;min-height:270px}aside{overflow:visible}}
+*{box-sizing:border-box}html,body{min-height:100%;width:100%;overflow-x:hidden}body{min-height:100dvh}header{padding-top:calc(12px + env(safe-area-inset-top));padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}main{height:calc(100dvh - 72px);min-height:0}aside{min-height:0;overscroll-behavior:contain;padding-bottom:calc(20px + env(safe-area-inset-bottom))}#view{min-width:0;min-height:0;overflow:hidden}#canvas{width:100%;height:100%}#canvas canvas{display:block;width:100%;height:100%;touch-action:none}input[type=range]{min-height:32px;touch-action:pan-y}button,select{min-height:44px}label{gap:8px}label b{white-space:nowrap}#hint{right:10px;line-height:1.4}#viewToolbar{position:absolute;z-index:2;right:12px;top:12px;display:flex;gap:8px}#viewToolbar button{margin:0;width:auto;min-height:40px;padding:8px 12px;background:#263f58;color:#fff;border:1px solid #53718b}#viewToolbar button:active{background:#3b6587}#viewToolbar{flex-wrap:wrap;justify-content:flex-end;max-width:calc(100% - 20px)}#hint{max-width:calc(100% - 25px)}
+@media(max-width:700px){header{padding-top:calc(9px + env(safe-area-inset-top));padding-bottom:9px}main{height:auto;min-height:0;display:flex;flex-direction:column}#view{order:0;height:clamp(265px,42dvh,480px);min-height:265px;flex:none}aside{order:1;overflow:visible;padding:14px 16px calc(28px + env(safe-area-inset-bottom))}h1{font-size:17px}#hint{bottom:8px;font-size:11px}}
+@media(min-width:701px) and (max-width:1100px){main{grid-template-columns:minmax(275px,38%) minmax(0,1fr)}}
+@media(max-height:480px) and (orientation:landscape){header{padding:7px 14px}header small{display:none}main{height:calc(100dvh - 42px);display:grid;grid-template-columns:minmax(255px,42%) minmax(0,1fr)}aside{order:0;overflow:auto;padding:10px 14px}#view{order:0;height:auto;min-height:0}label{margin:8px 0 3px}}
+@media(min-width:1100px){main{grid-template-columns:350px minmax(0,1fr)}}
+
+/* Desktop Chrome layout */
+@media (min-width:1100px) and (min-height:550px){
+ header{padding:15px clamp(20px,3vw,44px)}
+ main{grid-template-columns:clamp(350px,29vw,440px) minmax(0,1fr);height:calc(100dvh - 70px)}
+ aside{padding:20px 24px 32px;scrollbar-width:thin;scrollbar-color:#4b6985 #152131}
+ #view{height:100%;min-height:0}
+ #viewToolbar{top:20px;right:22px}
+ #hint{bottom:20px;left:22px;font-size:13px}
+ label{margin-top:17px}
+ input[type=range]{cursor:pointer}
+ button{cursor:pointer}
+}
+@media (min-width:1600px){main{grid-template-columns:440px minmax(0,1fr)}header h1{font-size:22px}}
+@media (hover:hover){button:hover{filter:brightness(1.12)}input:focus-visible,button:focus-visible,select:focus-visible{outline:2px solid #89d7ff;outline-offset:3px}}
+@media (max-width:700px){#viewToolbar{right:10px;top:10px}}
+
+#workspace{min-width:0;min-height:0;height:100%;display:block}
+#workspace #view{height:100%;min-height:0}
+@media(max-width:700px){#workspace{height:auto}#workspace #view{height:clamp(265px,42dvh,480px)}}
+@media(max-height:480px) and (orientation:landscape){#workspace #view{height:100%}}
+
+button:disabled{opacity:.45;cursor:wait}#error{white-space:normal;overflow-wrap:anywhere}.control-title{margin-top:22px;padding-top:14px;border-top:1px solid #34495f;color:#75cfff;font-weight:700}.toggle{align-items:center}.toggle input{width:22px;height:22px;flex:0 0 auto}.toggle+div label{margin-top:10px}
+</style><script type="importmap">{"imports":{"three":"./vendor/three.module.js"}}</script></head>
+<body><header><h1>BMX STREET SLIDE <span style="color:#61c3ff">V0.9.0 CAD</span></h1><small>Параметрический корпус · мм · Honor Magic V2 · Chrome Windows</small></header>
+<main><aside><div id="controls"></div><div id="slotSafety" class="note"></div>
+<div class="note"><b>Фиксировано:</b> центр включённой кольцевой выемки совпадает с началом прорезей; её включение, глубина, ширина и R настраиваются отдельно. Остальная геометрия не меняется. Наружная кромка головки со стороны руля R1, опорная часть плоскости остаётся плоской. Вход R4 и отверстие Ø10 плавно сужаются до фиксированного участка M8 длиной 8 мм; витки в STL не рассчитываются, участок представлен каналом Ø8. Далее конус 90° Ø8→Ø4 и канал Ø4 до торца. Четыре открытые прорези шириной 2 мм начинаются в 3 мм от задней плоскости головки и идут до торца; корень R1, наружные торцы лепестков R2.</div>
+<button id="export" disabled>Экспорт проверенного STL</button><button class="secondary" id="reset">Сброс размеров</button><div id="error" role="status" aria-live="polite"></div>
+<div class="note"><b>Крепление не подтверждено.</b> Винт не отображается. Обработка открытого выхода прорезей требует отдельного согласования. CAD и сетка проверяются перед экспортом; прочность и посадку нужно проверить отдельно.</div>
+</aside><div id="workspace"><section id="view"><div id="canvas"></div><div id="viewToolbar"><button type="button" id="fit">Вписать</button></div><div id="hint">Свободное вращение с креном · мышь: ЛКМ — вращение, колесо — масштаб, ПКМ — сдвиг · телефон: 1 палец — вращение, 2 — масштаб/сдвиг</div></section></div></main>
+<script type="module" src="./app.js"></script></body></html>

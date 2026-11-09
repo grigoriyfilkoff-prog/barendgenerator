@@ -1,0 +1,11 @@
+<!doctype html><meta charset="utf-8"><script type="module">
+import {conformCADMesh,validateMesh,binarySTL,readSTL} from '../mesh.js';
+import {parameters,DEFAULTS} from '../parameters.js';
+import {inspectDimensions} from './measurements.js';
+try{
+  const source=await(await fetch('./debug-mesh.json')).json();
+  const {mesh,repair}=conformCADMesh(source),report=validateMesh(mesh),stl=validateMesh(readSTL(binarySTL(mesh)));
+  inspectDimensions(mesh,parameters(DEFAULTS));
+  await fetch('/test-result',{method:'POST',body:JSON.stringify({done:true,ok:report.ok&&stl.ok,report,repair,stl})});
+}catch(e){await fetch('/test-result',{method:'POST',body:JSON.stringify({done:true,ok:false,error:String(e.stack||e)})});}
+</script>

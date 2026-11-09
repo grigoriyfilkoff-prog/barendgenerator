@@ -1,0 +1,71 @@
+<!doctype html><html><meta charset="utf-8"><title>BMX UI tests</title><body style="margin:0"><iframe id="app" style="border:0;width:1440px;height:900px"></iframe>
+<script type="module">
+import {readSTL,validateMesh} from '../mesh.js';
+const frame=document.getElementById('app');
+async function report(data){await fetch('/test-result',{method:'POST',body:JSON.stringify(data)});}
+function assert(v,msg){if(!v)throw new Error(msg);}
+async function waitFor(fn){const start=performance.now();while(!fn()){if(performance.now()-start>120000)throw new Error('UI timeout: '+frame.contentDocument?.getElementById('error')?.textContent);await new Promise(r=>setTimeout(r,50));}}
+try{
+  frame.src=new URLSearchParams(location.search).get('src')||'../index.html';
+  await new Promise(r=>frame.onload=r);
+  const win=frame.contentWindow,doc=frame.contentDocument,$=id=>doc.getElementById(id);
+  await waitFor(()=>!$('export').disabled);
+  assert(doc.characterSet==='UTF-8','UTF-8 document');
+  assert(doc.querySelector('header small').textContent==='Параметрический корпус · мм · Honor Magic V2 · Chrome Windows','header encoding');
+  assert($('reset').textContent==='Сброс размеров','button encoding');
+  for(const id of ['openDrawing','drawing','drawingSvg','saveDrawing','closeDrawing'])assert(!$(id),'drawing UI removed: '+id);
+  const visibleBody=doc.body.cloneNode(true);visibleBody.querySelectorAll('script,style').forEach(node=>node.remove());
+  assert(!visibleBody.textContent.includes('??')&&!visibleBody.textContent.includes('\uFFFD'),'no corrupted visible text');
+  assert(doc.querySelectorAll('input[type=range]').length===5,'five variable parameters');
+  for(const id of ['holeD','slotW','slotL','rootR','tipR','entryR'])assert(!$(id),'fixed parameter slider: '+id);
+  assert($('canvas').querySelector('canvas'),'WebGL canvas');
+  for(const [name,width,height] of [['desktop',1440,900],['folded',400,800],['unfolded',800,700],['landscape',900,400]]){
+    frame.style.width=width+'px';frame.style.height=height+'px';await new Promise(r=>setTimeout(r,150));
+    assert(doc.documentElement.scrollWidth<=width+1,name+' horizontal overflow');
+    const view=$('canvas').getBoundingClientRect(),canvas=$('canvas').querySelector('canvas').getBoundingClientRect();
+    assert(view.width>100&&view.height>100,name+' visible canvas');
+    assert(Math.abs(view.width-canvas.width)<1&&Math.abs(view.height-canvas.height)<1,name+' responsive renderer');
+    await report({name:'layout '+name,ok:true,width,height,canvas:{width:view.width,height:view.height}});
+  }
+  const saved=[];
+  win.URL.createObjectURL=blob=>{saved.push(blob);return 'blob:test';};
+  win.URL.revokeObjectURL=()=>{};win.HTMLAnchorElement.prototype.click=function(){};
+  $('export').click();
+  const stl=await saved.pop().arrayBuffer();assert(validateMesh(readSTL(stl)).ok,'downloaded STL');
+  // Move the slider continuously while CAD is still busy. Each requested frame
+  // must display the new dimensions, with actual body pixels and export blocked.
+  assert(!$('mode'),'screw display selector removed');
+  const previews=[];
+  for(let step=0;step<12;step++){
+    const next=new Promise(resolve=>win.addEventListener('bmx-preview',event=>{
+      const gl=$('canvas').querySelector('canvas').getContext('webgl2');
+      const pixels=new Uint8Array(gl.drawingBufferWidth*gl.drawingBufferHeight*4);
+      gl.readPixels(0,0,gl.drawingBufferWidth,gl.drawingBufferHeight,gl.RGBA,gl.UNSIGNED_BYTE,pixels);
+      let bodyPixels=0;
+      for(let i=0;i<pixels.length;i+=4)if(pixels[i]!==13||pixels[i+1]!==20||pixels[i+2]!==32)bodyPixels++;
+      resolve({...event.detail,bodyPixels});
+    },{once:true}));
+    const value=24+step*.5;
+    $('headD').value=value;$('headD').dispatchEvent(new Event('input'));
+    assert($('export').disabled,'block export during preview');
+    const preview=await next;
+    assert(preview.params.headD===value,'preview tracks current slider value');
+    assert(preview.bodyPixels>500,'body must remain drawn during dragging');
+    assert($('canvas').dataset.geometry==='preview','immediate preview, no CAD wait');
+    previews.push(preview);
+  }
+  await waitFor(()=>!$('export').disabled);
+  assert($('canvas').dataset.geometry==='cad','final exact CAD replaces preview');
+  await report({name:'UTF-8 and continuous visible preview',ok:true,frames:previews.length,maxPreviewMs:Math.max(...previews.map(p=>p.elapsedMs)),minBodyPixels:Math.min(...previews.map(p=>p.bodyPixels))});
+  for(const [key,value] of [['bodyL',15],['headR',0]]){
+    $(key).value=value;$(key).dispatchEvent(new Event('input'));
+    assert($('export').disabled,'stale export must be blocked');
+  }
+  await waitFor(()=>!$('export').disabled);
+  assert($('slotSafety').textContent.includes('длина 12.0 мм'),'dynamic slot length');
+  $('reset').click();await waitFor(()=>!$('export').disabled);
+  assert($('bodyL').value==='19'&&$('headR').value==='2','reset');
+  await report({name:'UI interactions, STL download, drawing removal, stale result handling',ok:true});
+  await report({done:true,ok:true});
+}catch(error){await report({done:true,ok:false,error:String(error.stack||error)});}
+</script></body></html>

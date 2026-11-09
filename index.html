@@ -1,0 +1,119 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>BMX STREET SLIDE — Конфигуратор V0.8.2</title><style>body{margin:0;background:#0d1420;color:#edf4ff;font:15px system-ui}header{padding:15px 18px;border-bottom:1px solid #2b3c50}h1{font-size:19px;margin:0}small{color:#a7b8ca}main{display:grid;grid-template-columns:minmax(270px,340px) 1fr;min-height:calc(100dvh - 65px)}aside{padding:15px;overflow:auto;background:#152131}label{display:flex;justify-content:space-between;margin:13px 0 5px}input{width:100%;accent-color:#5bbcf5}button{background:#56b5ec;color:#07121d;border:0;border-radius:9px;padding:13px 16px;font-weight:700;width:100%;margin-top:12px}button.secondary{background:#2b425a;color:#fff}.note{font-size:12px;color:#c3d2e2;line-height:1.5;margin-top:16px}#view{position:relative;min-height:380px}#canvas{position:absolute;inset:0}#hint{position:absolute;bottom:12px;left:14px;font-size:12px;color:#a8b8c9;pointer-events:none}#error{color:#ffb59f;font-size:12px;margin-top:9px}select{background:#23374d;color:white;padding:8px;border:1px solid #50637a;border-radius:6px}@media(max-width:700px){main{display:flex;flex-direction:column-reverse}#view{height:44dvh;min-height:270px}aside{overflow:visible}}
+*{box-sizing:border-box}html,body{min-height:100%;width:100%;overflow-x:hidden}body{min-height:100dvh}header{padding-top:calc(12px + env(safe-area-inset-top));padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}main{height:calc(100dvh - 72px);min-height:0}aside{min-height:0;overscroll-behavior:contain;padding-bottom:calc(20px + env(safe-area-inset-bottom))}#view{min-width:0;min-height:0;overflow:hidden}#canvas{width:100%;height:100%}#canvas canvas{display:block;width:100%;height:100%;touch-action:none}input[type=range]{min-height:32px;touch-action:pan-y}button,select{min-height:44px}label{gap:8px}label b{white-space:nowrap}#hint{right:10px;line-height:1.4}#viewToolbar{position:absolute;z-index:2;right:12px;top:12px;display:flex;gap:8px}#viewToolbar button{margin:0;width:auto;min-height:40px;padding:8px 12px;background:#263f58;color:#fff;border:1px solid #53718b}#viewToolbar button:active{background:#3b6587}#viewToolbar{flex-wrap:wrap;justify-content:flex-end;max-width:calc(100% - 20px)}#hint{max-width:calc(100% - 25px)}
+@media(max-width:700px){header{padding-top:calc(9px + env(safe-area-inset-top));padding-bottom:9px}main{height:auto;min-height:0;display:flex;flex-direction:column}#view{order:0;height:clamp(265px,42dvh,480px);min-height:265px;flex:none}aside{order:1;overflow:visible;padding:14px 16px calc(28px + env(safe-area-inset-bottom))}h1{font-size:17px}#hint{bottom:8px;font-size:11px}}
+@media(min-width:701px) and (max-width:1100px){main{grid-template-columns:minmax(275px,38%) minmax(0,1fr)}}
+@media(max-height:480px) and (orientation:landscape){header{padding:7px 14px}header small{display:none}main{height:calc(100dvh - 42px);display:grid;grid-template-columns:minmax(255px,42%) minmax(0,1fr)}aside{order:0;overflow:auto;padding:10px 14px}#view{order:0;height:auto;min-height:0}label{margin:8px 0 3px}}
+@media(min-width:1100px){main{grid-template-columns:350px minmax(0,1fr)}}
+
+/* Desktop Chrome layout */
+@media (min-width:1100px) and (min-height:550px){
+ header{padding:15px clamp(20px,3vw,44px)}
+ main{grid-template-columns:clamp(350px,29vw,440px) minmax(0,1fr);height:calc(100dvh - 70px)}
+ aside{padding:20px 24px 32px;scrollbar-width:thin;scrollbar-color:#4b6985 #152131}
+ #view{height:100%;min-height:0}
+ #viewToolbar{top:20px;right:22px}
+ #hint{bottom:20px;left:22px;font-size:13px}
+ label{margin-top:17px}
+ input[type=range]{cursor:pointer}
+ button{cursor:pointer}
+}
+@media (min-width:1600px){main{grid-template-columns:440px minmax(0,1fr)}header h1{font-size:22px}}
+@media (hover:hover){button:hover{filter:brightness(1.12)}input:focus-visible,button:focus-visible,select:focus-visible{outline:2px solid #89d7ff;outline-offset:3px}}
+@media (max-width:700px){#viewToolbar{right:10px;top:10px}}
+
+/* Separate drawing dialog */
+#workspace{min-width:0;min-height:0;height:100%;display:block}
+#workspace #view{height:100%;min-height:0}
+#drawing{position:fixed;inset:0;z-index:20;background:#f7fafc;color:#1b2938;display:none;flex-direction:column;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+#drawing.open{display:flex}
+.drawingbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;background:#e8eff5;font-size:14px;font-weight:700;flex-wrap:wrap}
+.drawingbar .actions{display:flex;gap:8px}
+.drawingbar button{width:auto;min-height:42px;margin:0;padding:8px 12px;font-size:13px;background:#264d69;color:white}
+#drawingSvg{width:100%;height:100%;min-height:0;display:block;flex:1;touch-action:pan-x pan-y}
+#drawingNote{font-size:12px;padding:9px 14px;color:#4d6070}
+@media(max-width:700px){#workspace{height:auto}#workspace #view{height:clamp(265px,42dvh,480px)}#drawingNote{font-size:11px}}
+@media(max-height:480px) and (orientation:landscape){#workspace #view{height:100%}}
+</style></head><body><header><h1>BMX STREET SLIDE <span style="color:#61c3ff">V2.0</span></h1><small>Параметрический эскиз · мм · Android · Chrome для ПК</small></header><main><aside><div id="controls"></div><label>Вид <select id="mode"><option value="all">Корпус + условный винт</option><option value="body">Только печатная деталь</option></select></label><button id="export">Экспорт STL корпуса</button><button class="secondary" id="reset">Сброс размеров</button><div id="error"></div><div class="note"><b>Внимание.</b> Версия V0.8.2. Минимум 2 мм цельного материала между головкой и началом прорезей — обязательное ограничение. Геометрический демонстратор, не проверенная механическая конструкция. Ширина пропила фиксирована: 2 мм. R1 на концах прорезей и R2 на наружных торцах лепестков заданы как требования, но пока не реализованы в 3D/STL. Скругляется только наружный передний край головки; задняя опорная плоскость у руля и переход к посадочной части остаются острыми (R0). скругление входа пока только обозначено. Центральный канал Ø4 не является резьбой M6. Модель содержит отдельные соприкасающиеся тела, которые требуется объединить и проверить на водонепроницаемость перед печатью. Винт M6×10 не достигает начала прорезей при исходной компоновке. Для работы необходим интернет при первой загрузке библиотек.</div></aside><div id="workspace"><section id="view"><div id="canvas"></div><div id="viewToolbar"><button type="button" id="openDrawing">Эскиз</button><button type="button" id="fit" aria-label="Показать всю модель">Вписать</button></div><div id="hint">Свободное вращение 3D (включая крен) · мышь: ЛКМ — вращение, колесо — масштаб, ПКМ — сдвиг · телефон: 1 палец — вращение, 2 — масштаб/сдвиг</div></section><section id="drawing" role="dialog" aria-modal="true" aria-label="Размерный эскиз"><div class="drawingbar"><span>Размерный эскиз · мм</span><div class="actions"><button id="saveDrawing" type="button">Сохранить SVG</button><button id="closeDrawing" type="button">Закрыть ✕</button></div></div><svg id="drawingSvg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Автоматически обновляемый размерный эскиз"></svg><div id="drawingNote">Геометрия в едином масштабе по обеим осям (1:1 внутри схемы). Прорези начинаются не ближе 2 мм от головки. Размеры в мм. Резьба и скругление входа условные.</div></section></div></main><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/"}}</script><script type="module">
+import * as THREE from 'three';import {TrackballControls} from 'three/addons/controls/TrackballControls.js';import {STLExporter} from 'three/addons/exporters/STLExporter.js';
+const defs=[['headD','Диаметр головки',30,24,36,.5],['headH','Толщина головки',8,5,12,.5],['bodyD','Диаметр посадки',18.4,17.5,19,.1],['bodyL','Длина посадки',19,12,27,.5],['slotL','Длина прорезей',15,6,23,.5],['holeD','Диаметр внутреннего канала',4,3,6,.25],['headR','Радиус переднего края (не у руля)',2,0,4,.25],['entryR','Скругление входа (номинал)',2,0,2.5,.25]];let vals={slotW:2};const MIN_ROOT=2;const SLOT_END_RADIUS=1;const PETAL_TIP_RADIUS=2;const panel=document.getElementById('controls');for(const [id,label,value,min,max,step] of defs){vals[id]=value;const wrap=document.createElement('div');wrap.innerHTML=`<label for="${id}">${label}<b id="${id}v">${value} мм</b></label><input id="${id}" type="range" min="${min}" max="${max}" step="${step}" value="${value}">`;panel.append(wrap);wrap.querySelector('input').addEventListener('input',e=>{vals[id]=+e.target.value;enforceSlotLimit();rebuild()})}
+function enforceSlotLimit(){
+ const slot=document.getElementById('slotL');
+ const allowed=Math.max(Number(slot.min),Math.min(23,Math.floor((vals.bodyL-MIN_ROOT)*2)/2));
+ slot.max=String(allowed);
+ vals.slotL=Math.min(vals.slotL,allowed);
+ slot.value=String(vals.slotL);
+ for(const id of ['bodyL','slotL'])document.getElementById(id+'v').textContent=vals[id]+' мм';
+ const root=vals.bodyL-vals.slotL;
+ document.getElementById('slotSafety').textContent=`Цельный участок от головки до прорезей: ${root.toFixed(1)} мм (минимум 2 мм). Максимальная длина прорези: ${allowed.toFixed(1)} мм.`;
+}
+const slotSafety=document.createElement('div');slotSafety.id='slotSafety';slotSafety.className='note';slotSafety.style.cssText='border:1px solid #4a829c;border-radius:8px;padding:9px;margin:10px 0;color:#b8e6ff';panel.append(slotSafety);const fixedInfo=document.createElement('div');fixedInfo.className='note';fixedInfo.innerHTML='<b>Фиксированная геометрия:</b> ширина пропила 2 мм по всей длине; радиусы обоих концов пропила R1 мм; наружные края торцов лепестков R2 мм. Эти параметры не регулируются.';panel.append(fixedInfo);enforceSlotLimit();
+const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setClearColor(0x0d1420);document.getElementById('canvas').append(renderer.domElement);const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(40,1,.1,300);camera.position.set(42,33,48);const controls=new TrackballControls(camera,renderer.domElement);controls.rotateSpeed=3.0;controls.zoomSpeed=1.15;controls.panSpeed=0.75;controls.staticMoving=false;controls.dynamicDampingFactor=0.12;controls.noRoll=false;scene.add(new THREE.HemisphereLight(0xffffff,0x35536b,2.5));const light=new THREE.DirectionalLight(0xffffff,2);light.position.set(25,30,30);scene.add(light);const group=new THREE.Group();scene.add(group);let printable=[];const mat=new THREE.MeshStandardMaterial({color:0x52b9e9,metalness:.08,roughness:.52,side:THREE.DoubleSide});const steel=new THREE.MeshStandardMaterial({color:0xb7c2ce,metalness:.75,roughness:.28});
+function ringShape(ro,ri){const s=new THREE.Shape();s.absarc(0,0,ro,0,Math.PI*2,false);const h=new THREE.Path();h.absarc(0,0,ri,0,Math.PI*2,true);s.holes.push(h);return s}
+function addExtruded(shape,depth,z,material=mat){const g=new THREE.ExtrudeGeometry(shape,{depth,bevelEnabled:false,curveSegments:64,steps:1});const m=new THREE.Mesh(g,material);m.position.z=z;group.add(m);if(material===mat)printable.push(m);return m}
+// Профиль: z=0 — наружный торец; z=height — плоская опорная поверхность руля.
+// Радиус применяется ТОЛЬКО к наружному переднему ребру; заднее ребро и уступ R0.
+function roundedHeadGeometry(outer,inner,height,radius){
+ const r=Math.max(0,Math.min(radius,height/2,outer-inner-0.2));
+ const pts=[new THREE.Vector2(inner,0),new THREE.Vector2(outer-r,0)];
+ if(r>0){for(let i=1;i<=16;i++){const t=-Math.PI/2+(Math.PI/2)*i/16;pts.push(new THREE.Vector2(outer-r+r*Math.cos(t),r+r*Math.sin(t)))}}
+ else pts.push(new THREE.Vector2(outer,0));
+ pts.push(new THREE.Vector2(outer,height),new THREE.Vector2(inner,height)); // прямой угол у руля
+ const g=new THREE.LatheGeometry(pts,96);g.rotateX(Math.PI/2);return g;
+}
+function sectorShape(ro,ri,a,b){const s=new THREE.Shape();s.moveTo(ri*Math.cos(a),ri*Math.sin(a));s.lineTo(ro*Math.cos(a),ro*Math.sin(a));s.absarc(0,0,ro,a,b,false);s.lineTo(ri*Math.cos(b),ri*Math.sin(b));s.absarc(0,0,ri,b,a,true);return s}
+function drawDimensions(){
+ const v=vals,svg=document.getElementById('drawingSvg');
+ const f=n=>Number(n.toFixed(2)).toString();
+ // Uniform SVG scale: 12 SVG units per mm for BOTH axial and radial directions.
+ const k=12, x0=170, x1=x0+v.headH*k, x3=x1+v.bodyL*k;
+ const yc=255, ht=v.headD*k/2,bt=v.bodyD*k/2, hole=v.holeD*k/2;
+ const top=yc-ht,bot=yc+ht,btop=yc-bt,bbot=yc+bt;
+ const x2=x3-v.slotL*k, corner=Math.min(v.headR,v.headH/2,(v.headD-v.holeD)/2-.2)*k;
+ const line=(x,y,X,Y,attrs='')=>`<line x1="${x}" y1="${y}" x2="${X}" y2="${Y}" ${attrs}/>`;
+ const tick=(x,y)=>`<path d="M${x-5} ${y+5}l10 -10"/>`;
+ const dimH=(x,X,y,label)=>`<g stroke="#42647d" stroke-width="1.2" fill="none">${line(x,y-6,x,y+6)}${line(X,y-6,X,y+6)}${line(x,y,X,y)}${tick(x,y)}${tick(X,y)}</g><text x="${(x+X)/2}" y="${y-9}" text-anchor="middle" font-size="13" fill="#16486a">${label}</text>`;
+ const dimV=(x,y,Y,label)=>`<g stroke="#42647d" stroke-width="1.2" fill="none">${line(x-6,y,x+6,y)}${line(x-6,Y,x+6,Y)}${line(x,y,x,Y)}${tick(x,y)}${tick(x,Y)}</g><text x="${x-13}" y="${(y+Y)/2}" text-anchor="middle" font-size="13" fill="#16486a" transform="rotate(-90 ${x-13} ${(y+Y)/2})">${label}</text>`;
+ const r=Math.max(0,corner);
+ const profile=`M${x0} ${top+r} ${r>0?`Q${x0} ${top} ${x0+r} ${top}`:`L${x0} ${top}`} H${x1} V${btop} H${x3} V${bbot} H${x1} V${bot} H${x0+r} ${r>0?`Q${x0} ${bot} ${x0} ${bot-r}`:`L${x0} ${bot}`} Z`;
+ const faceX=215,faceY=710,faceR=v.bodyD*k/2;
+ const cut=v.slotW*k/2;
+ svg.setAttribute('viewBox','0 0 900 950');
+ svg.setAttribute('preserveAspectRatio','xMidYMid meet');
+ svg.innerHTML=`<rect width="900" height="950" fill="#f7fafc"/>
+ <text x="40" y="37" font-size="22" font-weight="700" fill="#1b2938">BMX STREET SLIDE · Размерный эскиз</text>
+ <text x="40" y="60" font-size="13" fill="#506478">Все геометрические элементы построены в одном масштабе: ${k} ед./мм</text>
+ <path d="${profile}" fill="#c6d9e6" stroke="#29455b" stroke-width="2.5"/>
+ <path d="M${x0} ${yc-hole}H${x3}V${yc+hole}H${x0}Z" fill="#fff" stroke="#29455b" stroke-width="1.6"/>
+ <path d="M${x2} ${btop}H${x3}M${x2} ${bbot}H${x3}" fill="none" stroke="#d05a48" stroke-width="3"/>
+ <path d="M${x0-24} ${yc}H${x3+24}" stroke="#7e94a8" stroke-dasharray="7 6" stroke-width="1"/>
+ ${dimH(x0,x1,80,`${f(v.headH)} мм`)}${dimH(x1,x3,80,`${f(v.bodyL)} мм`)}
+ ${dimH(x2,x3,125,`Прорезь ${f(v.slotL)} мм`)}
+ ${dimV(105,top,bot,`Ø${f(v.headD)}`)}${dimV(760,btop,bbot,`Ø${f(v.bodyD)}`)}
+ <text x="${(x0+x3)/2}" y="${yc- hole-14}" text-anchor="middle" font-size="14" fill="#29455b">Канал Ø${f(v.holeD)}</text>
+ <text x="${x0+35}" y="${top-13}" font-size="13" fill="#17496c">R${f(v.headR)} (передний край)</text>
+ <text x="${x1+10}" y="${bot+25}" font-size="13" fill="#a34330">Контакт с рулём: R0</text>
+ <text x="450" y="500" text-anchor="middle" font-size="14" fill="#41566b">Полная длина ${f(v.headH+v.bodyL)} мм · цельное основание ${f(v.bodyL-v.slotL)} мм (≥ 2 мм)</text>
+ <text x="40" y="570" font-size="17" font-weight="700" fill="#1b2938">Торцевой вид посадочной части</text>
+ <g transform="translate(${faceX} ${faceY})" fill="none" stroke="#29455b" stroke-width="2.5">
+ <circle r="${faceR}"/><circle r="${hole}"/>
+ <path d="M${-cut} ${-faceR-1}H${cut}V${-hole}H${-cut}Z M${-cut} ${hole}H${cut}V${faceR+1}H${-cut}Z M${-faceR-1} ${-cut}H${-hole}V${cut}H${-faceR-1}Z M${hole} ${-cut}H${faceR+1}V${cut}H${hole}Z" fill="#f7fafc" stroke="#d05a48" stroke-width="1.2"/>
+ </g>
+ <text x="435" y="666" font-size="16" fill="#29455b">4 прорези по ${f(v.slotW)} мм (фикс.)</text>
+ <text x="435" y="698" font-size="15" fill="#29455b">Диаметр посадки Ø${f(v.bodyD)} мм</text>
+ <text x="435" y="730" font-size="15" fill="#29455b">Канал Ø${f(v.holeD)} мм</text>
+ <text x="435" y="762" font-size="15" fill="#29455b">Винт M6×10 — условно</text>
+ <text x="435" y="794" font-size="15" fill="#29455b">Окончания прорезей R1 · торцы лепестков R2 (заданы)</text>
+ <text x="40" y="905" font-size="14" fill="#9c3c43">Эскиз не является производственным чертежом. R1 и R2 пока не построены. STL требует проверки.</text>`;
+}
+function rebuild(){while(group.children.length){const c=group.children[0];group.remove(c);c.geometry.dispose()}printable=[];enforceSlotLimit();const v=vals,base=v.bodyL-v.slotL;document.getElementById('error').textContent=(base<MIN_ROOT?'ОШИБКА: прорезь ближе 2 мм к головке. ':'')+(v.holeD>=v.bodyD?'Неверный диаметр канала. ':'')+'Внимание: STL требует проверки целостности в CAD/слайсере.';drawDimensions();
+const ri=v.holeD/2,ro=v.bodyD/2;const head=new THREE.Mesh(roundedHeadGeometry(v.headD/2,ri,v.headH,v.headR),mat);group.add(head);printable.push(head);if(base>0)addExtruded(ringShape(ro,ri),base,v.headH);const half=Math.asin(Math.min(.95,v.slotW/(2*ro)));for(let i=0;i<4;i++){const a=i*Math.PI/2+half,b=(i+1)*Math.PI/2-half;addExtruded(sectorShape(ro,ri,a,b),v.slotL,v.headH+base)}
+if(document.getElementById('mode').value==='all'){const g=new THREE.CylinderGeometry(3,3,10,32);g.rotateX(Math.PI/2);const screw=new THREE.Mesh(g,steel);screw.position.z=v.headH/2;group.add(screw)}group.rotation.x=-Math.PI/2;}
+function fitCamera(){const v=vals;const length=v.headH+v.bodyL;const radius=Math.max(v.headD,v.bodyD)/2;const center=length/2;controls.target.set(0,center,0);camera.up.set(0,1,0);const dist=Math.max(48,Math.hypot(radius,length/2)*3.8);camera.position.set(dist*.75,center+dist*.6,dist*.85);camera.near=.1;camera.far=500;camera.updateProjectionMatrix();controls.update()}
+function resize(){const el=document.getElementById('canvas'),w=Math.max(1,el.clientWidth),h=Math.max(1,el.clientHeight);renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();controls.handleResize()}window.addEventListener('resize',resize);new ResizeObserver(resize).observe(document.getElementById('canvas'));document.getElementById('fit').onclick=()=>{fitCamera()};const drawing=document.getElementById('drawing');
+const openDrawing=()=>{drawDimensions();drawing.classList.add('open');document.getElementById('closeDrawing').focus()};
+const closeDrawing=()=>{drawing.classList.remove('open');document.getElementById('openDrawing').focus()};
+document.getElementById('openDrawing').onclick=openDrawing;
+document.getElementById('closeDrawing').onclick=closeDrawing;
+window.addEventListener('keydown',e=>{if(e.key==='Escape'&&drawing.classList.contains('open'))closeDrawing()});
+document.getElementById('mode').addEventListener('change',rebuild);document.getElementById('reset').onclick=()=>{for(const [id,,val] of defs){vals[id]=val;document.getElementById(id).value=val;document.getElementById(id+'v').textContent=val+' мм'}rebuild()};document.getElementById('saveDrawing').onclick=()=>{const svg=document.getElementById('drawingSvg');const content=new XMLSerializer().serializeToString(svg);const blob=new Blob([content],{type:'image/svg+xml;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='BMX_STREET_SLIDE_dimensions.svg';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)};document.getElementById('export').onclick=()=>{const temp=new THREE.Group();for(const m of printable){const clone=m.clone();clone.position.copy(m.position);temp.add(clone)}const data=new STLExporter().parse(temp,{binary:true});const blob=new Blob([data],{type:'application/octet-stream'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='BMX_STREET_SLIDE_V2_preview.stl';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)};resize();rebuild();fitCamera();drawDimensions();(function loop(){requestAnimationFrame(loop);controls.update();renderer.render(scene,camera)})();
+</script></body></html>

@@ -1,0 +1,18 @@
+# Browser and CAD test artifacts
+v0.9.0/tests/direct-file-profile/
+v0.9.0/tests/direct-file-downloads/
+v0.9.0/tests/*-results.json
+v0.9.0/tests/debug-mesh.json
+v0.9.0/exports/
+
+# Crash dumps and local caches
+*.dmp
+*.log
+__pycache__/
+.pytest_cache/
+
+# Editor and operating-system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

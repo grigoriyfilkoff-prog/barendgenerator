@@ -1,0 +1,68 @@
+<!doctype html><html><meta charset="utf-8"><title>BMX CAD tests</title><body><pre id="log"></pre>
+<script type="module">
+import {DEFAULTS,parameters,axialProfile,rootProfile} from '../parameters.js';
+import {validateMesh,binarySTL,readSTL} from '../mesh.js';
+import {inspectDimensions} from './measurements.js';
+const log=document.getElementById('log');
+async function report(data){log.textContent+=JSON.stringify(data)+'\n';await fetch('/test-result',{method:'POST',body:JSON.stringify(data)});}
+const worker=new Worker('../cad-worker.js',{type:'module'});
+let sequence=0;
+function job(data){return new Promise((resolve,reject)=>{
+  worker.onmessage=async e=>{
+    if(e.data.kind==='progress'){if(/виток 1 |виток 6 |виток 11 |Проверка/.test(e.data.stage))await report({name:'progress',stage:e.data.stage});return;}
+    if(e.data.debugMesh)await fetch('/artifact/debug-mesh.json',{method:'POST',body:JSON.stringify(e.data.debugMesh)});
+    e.data.error?reject(new Error(e.data.error)):resolve(e.data);
+  };
+  worker.onerror=e=>reject(new Error(e.message));
+  worker.postMessage({id:++sequence,debug:true,...data});
+});}
+function assert(value,msg){if(!value)throw new Error(msg);}
+
+try {
+  await report({name:'bindings',...(await job({diagnostic:true}))});
+  const p=parameters(DEFAULTS), profile=axialProfile(p),root=rootProfile(p);
+  assert(profile.at(-1).end[0]===p.mouthR && profile.at(-1).end[1]===0,'closed profile');
+  assert(root[1].mid[1]===12 && root[1].radius===1,'nearest root point');
+  assert(profile.find(s=>s.radius===2 && s.end[1]===p.total),'R2');
+  assert(Math.abs(p.threadCenter-p.slotStart)<1e-9&&Math.abs(p.threadStart-7)<1e-9&&Math.abs(p.threadEnd-15)<1e-9&&Math.abs(p.threadLength-8)<1e-9&&Math.abs(p.coneEnd-17)<1e-9&&Math.abs(p.coneLength-2)<1e-9&&p.entryR===4&&p.preHoleD===10,'centred thread extent and cone');
+  assert(Math.abs(p.threadMinorR*2-(p.threadD-5*Math.sqrt(3)/8*p.threadPitch))<1e-8,'M8 basic minor diameter');
+  for(const bad of [{slotOffset:2},{holeD:5},{headH:7.5},{bodyL:NaN}]){
+    let rejected=false;try{parameters({...DEFAULTS,...bad});}catch{rejected=true;}
+    assert(rejected,'invalid dimensions must be rejected');
+  }
+  await report({name:'parameter constraints',ok:true});
+  const selectedCase=new URLSearchParams(location.search).get('case');
+  const cases=selectedCase==='half' ? [['half pitch end',{headH:8.5}]] : selectedCase==='default' ? [['default',{}]] : [
+    ['default',{}],
+    ['minimum envelope',{headD:24,headH:8,bodyD:17.5,bodyL:15,headR:2.5}],
+    ['maximum envelope',{headD:45,headH:20,bodyD:35,bodyL:27,headR:13}],
+    ['sharp head',{headR:0}],['short body',{bodyL:15}],
+    ['long body',{bodyL:25}],
+    ['large head thin shoulder',{headD:24,bodyD:19,headH:8,headR:2.5}],
+  ];
+  for(const [name,overrides] of cases){
+    const out=await job({params:{...DEFAULTS,...overrides}}),r=out.report,p=out.params;
+    assert(r.ok && r.stlValid && r.cadValid && r.solids===1,name+' validity');
+    assert(Math.abs(r.bounds.max[2]-p.total)<1e-5 && Math.abs(r.bounds.min[2])<1e-5,'z bounds');
+    assert(Math.abs(r.bounds.max[0]-p.rh)<.011,'radial bounds');
+    if(name==='default'||name==='half pitch end')inspectDimensions(out.mesh,p);
+    if(name==='default'){
+      // Negative controls: verification must reject genuine defects.
+      const open={...out.mesh,triangles:out.mesh.triangles.slice(3)};
+      assert(!validateMesh(open,{checkIntersections:false}).ok,'open mesh rejection');
+      const duplicate={...out.mesh,triangles:[...out.mesh.triangles,...out.mesh.triangles.slice(0,3)]};
+      assert(!validateMesh(duplicate,{checkIntersections:false}).ok,'duplicate rejection');
+      const reversed={...out.mesh,triangles:[...out.mesh.triangles]};
+      [reversed.triangles[0],reversed.triangles[1]]=[reversed.triangles[1],reversed.triangles[0]];
+      assert(!validateMesh(reversed,{checkIntersections:false}).ok,'orientation rejection');
+      const stl=binarySTL(out.mesh);assert(validateMesh(readSTL(stl)).ok,'STL round trip');
+      await fetch('/artifact/body.stl',{method:'POST',body:stl});
+      const crossing={vertices:[-1,-1,0,1,-1,0,0,1,0,0,-.5,-1,0,-.5,1,0,.5,0],triangles:[0,1,2,3,4,5]};
+      assert(validateMesh(crossing).intersections===1,'self-intersection rejection');
+    }
+    await report({name,ok:true,...r});
+  }
+  await report({done:true,ok:true});
+}catch(e){await report({done:true,ok:false,error:String(e.stack||e)});}
+finally{worker.terminate();}
+</script></body></html>
