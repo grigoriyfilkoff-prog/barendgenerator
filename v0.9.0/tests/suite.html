@@ -2,19 +2,20 @@
 <script type="module">
 import {DEFAULTS,parameters,axialProfile,rootProfile} from '../parameters.js';
 import {validateMesh,binarySTL,readSTL} from '../mesh.js';
-import {inspectDimensions} from './measurements.js';
+import {inspectDimensions,inspectThread} from './measurements.js';
 const log=document.getElementById('log');
 async function report(data){log.textContent+=JSON.stringify(data)+'\n';await fetch('/test-result',{method:'POST',body:JSON.stringify(data)});}
 const worker=new Worker('../cad-worker.js',{type:'module'});
 let sequence=0;
 function job(data){return new Promise((resolve,reject)=>{
   worker.onmessage=async e=>{
-    if(e.data.kind==='progress'){if(/виток 1 |виток 6 |виток 11 |Проверка/.test(e.data.stage))await report({name:'progress',stage:e.data.stage});return;}
+    if(e.data.kind==='progress'){await report({name:'progress',stage:e.data.stage});return;}
     if(e.data.debugMesh)await fetch('/artifact/debug-mesh.json',{method:'POST',body:JSON.stringify(e.data.debugMesh)});
+    if(e.data.debugBody)await fetch('/artifact/debug-body.brep',{method:'POST',body:e.data.debugBody});
     e.data.error?reject(new Error(e.data.error)):resolve(e.data);
   };
   worker.onerror=e=>reject(new Error(e.message));
-  worker.postMessage({id:++sequence,debug:true,...data});
+  worker.postMessage({id:++sequence,verify:true,debug:true,...data});
 });}
 function assert(value,msg){if(!value)throw new Error(msg);}
 
@@ -22,7 +23,7 @@ try {
   await report({name:'bindings',...(await job({diagnostic:true}))});
   const p=parameters(DEFAULTS), profile=axialProfile(p),root=rootProfile(p);
   assert(profile.at(-1).end[0]===p.mouthR && profile.at(-1).end[1]===0,'closed profile');
-  assert(root[1].mid[1]===12 && root[1].radius===1,'nearest root point');
+  assert(root[1].mid[1]===11 && root[1].radius===1,'nearest root point');
   assert(profile.find(s=>s.radius===2 && s.end[1]===p.total),'R2');
   assert(Math.abs(p.threadCenter-p.slotStart)<1e-9&&Math.abs(p.threadStart-7)<1e-9&&Math.abs(p.threadEnd-15)<1e-9&&Math.abs(p.threadLength-8)<1e-9&&Math.abs(p.coneEnd-17)<1e-9&&Math.abs(p.coneLength-2)<1e-9&&p.entryR===4&&p.preHoleD===10,'centred thread extent and cone');
   assert(Math.abs(p.threadMinorR*2-(p.threadD-5*Math.sqrt(3)/8*p.threadPitch))<1e-8,'M8 basic minor diameter');
@@ -31,21 +32,36 @@ try {
     assert(rejected,'invalid dimensions must be rejected');
   }
   await report({name:'parameter constraints',ok:true});
+  // The previous smooth diameter-8 bore must never pass as an M8 thread.
+  const smooth={vertices:[],triangles:[]};
+  for(let i=0;i<128;i++){
+    const angle=i*Math.PI/64;
+    for(const z of [p.threadStart,p.threadEnd])smooth.vertices.push(4*Math.cos(angle),4*Math.sin(angle),z);
+    const a=2*i,b=2*((i+1)%128);smooth.triangles.push(a,b,a+1,b,b+1,a+1);
+  }
+  let smoothRejected=false;try{inspectThread(smooth,p);}catch{smoothRejected=true;}
+  assert(smoothRejected,'smooth diameter 8 bore must fail M8 verification');
+  await report({name:'smooth bore rejected as M8',ok:true});
   const selectedCase=new URLSearchParams(location.search).get('case');
-  const cases=selectedCase==='half' ? [['half pitch end',{headH:8.5}]] : selectedCase==='default' ? [['default',{}]] : [
+  const selectedCases={half:['half pitch end',{headH:8.5}],default:['default',{}],min:['minimum envelope',{headD:24,headH:8,bodyD:17.5,bodyL:12,headR:2.5}],max:['maximum envelope',{headD:45,headH:20,bodyD:35,bodyL:27,headR:13}],plain:['groove disabled',{grooveEnabled:false}]};
+  const cases=selectedCase ? [selectedCases[selectedCase]] : [
     ['default',{}],
-    ['minimum envelope',{headD:24,headH:8,bodyD:17.5,bodyL:15,headR:2.5}],
+    selectedCases.min,
     ['maximum envelope',{headD:45,headH:20,bodyD:35,bodyL:27,headR:13}],
     ['sharp head',{headR:0}],['short body',{bodyL:15}],
     ['long body',{bodyL:25}],
     ['large head thin shoulder',{headD:24,bodyD:19,headH:8,headR:2.5}],
+    ['groove disabled',{grooveEnabled:false}],
   ];
   for(const [name,overrides] of cases){
     const out=await job({params:{...DEFAULTS,...overrides}}),r=out.report,p=out.params;
+    if(!r.ok)await report({name,report:r});
     assert(r.ok && r.stlValid && r.cadValid && r.solids===1,name+' validity');
     assert(Math.abs(r.bounds.max[2]-p.total)<1e-5 && Math.abs(r.bounds.min[2])<1e-5,'z bounds');
     assert(Math.abs(r.bounds.max[0]-p.rh)<.011,'radial bounds');
     if(name==='default'||name==='half pitch end')inspectDimensions(out.mesh,p);
+    else inspectThread(out.mesh,p);
+    inspectThread(readSTL(out.stl),p);
     if(name==='default'){
       // Negative controls: verification must reject genuine defects.
       const open={...out.mesh,triangles:out.mesh.triangles.slice(3)};

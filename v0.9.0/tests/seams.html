@@ -1,0 +1,38 @@
+<!doctype html><meta charset="utf-8"><script type="module">
+import {conformCADMesh,validateMesh,binarySTL,readSTL} from '../mesh.js';
+const assert=(value,message)=>{if(!value)throw new Error(message);};
+try{
+  // A hollow cylinder has two differently tessellated bore faces sharing the
+  // exact radius-4 circle at z=0. This reproduces a CAD circular seam without
+  // depending on a locally saved debug artifact or rebuilding OpenCascade.
+  const source={vertices:[],normals:[],triangles:[]};
+  function point(r,z,a,normal){const id=source.vertices.length/3;source.vertices.push(r*Math.cos(a),r*Math.sin(a),z);source.normals.push(...normal);return id;}
+  function ring(r,z,n,inner=false){return Array.from({length:n},(_,i)=>{const a=2*Math.PI*i/n;return point(r,z,a,[(inner?-1:1)*Math.cos(a),(inner?-1:1)*Math.sin(a),0]);});}
+  function face(...ids){source.triangles.push(...ids);}
+  function wall(lo,hi,inner=false){for(let i=0;i<lo.length;i++){
+    const j=(i+1)%lo.length,a=lo[i],b=lo[j],c=hi[i],d=hi[j];
+    if(inner)face(a,c,b,b,c,d);else face(a,b,c,b,d,c);
+  }}
+  const outerLo=ring(5,-1,24),outerHi=ring(5,1,24);
+  const innerLo=ring(4,-1,24,true),lowerSeam=ring(4,0,24,true),upperSeam=ring(4,0,12,true),innerHi=ring(4,1,12,true);
+  wall(outerLo,outerHi);wall(innerLo,lowerSeam,true);wall(upperSeam,innerHi,true);
+  for(let i=0;i<24;i++){const j=(i+1)%24;face(innerLo[i],innerLo[j],outerLo[j],innerLo[i],outerLo[j],outerLo[i]);}
+  for(let i=0;i<12;i++){
+    const j=(i+1)%12,a=outerHi[2*i],b=outerHi[(2*i+1)%24],c=outerHi[(2*i+2)%24];
+    face(innerHi[i],a,b,innerHi[i],b,innerHi[j],innerHi[j],b,c);
+  }
+  assert(!validateMesh(source).ok,'mismatched circular tessellations must fail');
+  // A spurious zero-area CAD cap triangulates into material inside the known
+  // thread-root plateau. Its removal must not fill unrelated missing faces.
+  const cap=[-.3,0,.3].map(a=>point(4,0,a,[0,0,1]));face(...cap);
+  const options={circularSeams:[{z:0,radius:4,voidHalfAngle:Math.PI/8}]};
+  const {mesh,repair}=conformCADMesh(source,.002,options);
+  const report=validateMesh(mesh);
+  assert(report.ok,'circular seam must become closed and intersection-free');
+  assert(repair.removedThreadCapTriangles===1&&repair.circularSplitEdges>0,'known cap and circular seam handled');
+  assert(validateMesh(readSTL(binarySTL(mesh))).ok,'repaired circular seam survives STL round trip');
+  const open={...source,triangles:source.triangles.slice(3)};
+  assert(!validateMesh(conformCADMesh(open,.002,options).mesh).ok,'general missing face must remain an error');
+  await fetch('/test-result',{method:'POST',body:JSON.stringify({done:true,ok:true,report,repair})});
+}catch(error){await fetch('/test-result',{method:'POST',body:JSON.stringify({done:true,ok:false,error:String(error.stack||error)})});}
+</script>

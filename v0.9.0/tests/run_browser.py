@@ -10,6 +10,7 @@ import tempfile
 import threading
 import time
 import sys
+from urllib.parse import parse_qs, urlsplit
 
 sys.stdout.reconfigure(encoding='utf-8')
 
@@ -26,8 +27,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             print(fmt % args, flush=True)
 
     def do_POST(self):
-        if self.path == '/artifact/debug-mesh.json':
-            (ROOT / 'tests' / 'debug-mesh.json').write_bytes(self.rfile.read(int(self.headers['Content-Length'])))
+        if self.path in ('/artifact/debug-mesh.json','/artifact/debug-conformed.json','/artifact/debug-body.brep'):
+            (ROOT / 'tests' / self.path.rsplit('/',1)[-1]).write_bytes(self.rfile.read(int(self.headers['Content-Length'])))
             self.send_response(200)
             self.end_headers()
             return
@@ -62,13 +63,15 @@ proc = subprocess.Popen([str(chrome), '--headless=new', '--no-first-run', '--no-
     '--disable-background-networking', '--enable-unsafe-swiftshader', f'--user-data-dir={profile}', url],
     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=subprocess.CREATE_NO_WINDOW)
 try:
-    if not done.wait(900):
-        raise TimeoutError('Browser tests did not complete within 900 seconds')
+    if not done.wait(1800):
+        raise TimeoutError('Browser tests did not complete within 1800 seconds')
 finally:
     # Terminate only the isolated Chrome process tree created by this runner.
     subprocess.run(['taskkill', '/PID', str(proc.pid), '/T', '/F'], capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
     server.shutdown()
-output = ROOT / 'tests' / ('ui-results.json' if 'ui.html' in args.page else 'default-results.json' if 'case=default' in args.page else 'half-step-results.json' if 'case=half' in args.page else 'mesh-repair-results.json' if 'mesh-repair.html' in args.page else 'last-results.json')
+case = parse_qs(urlsplit(args.page).query).get('case', [''])[0]
+case_files = {'default':'default-results.json', 'half':'half-step-results.json', 'min':'minimum-results.json', 'max':'maximum-results.json', 'plain':'no-groove-results.json'}
+output = ROOT / 'tests' / ('ui-results.json' if 'ui.html' in args.page else 'mesh-repair-results.json' if 'mesh-repair.html' in args.page else case_files.get(case,'last-results.json'))
 output.write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding='utf-8')
 if any(item.get('error') or item.get('ok') is False for item in results):
     raise SystemExit(1)

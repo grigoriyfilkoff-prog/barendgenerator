@@ -35,11 +35,11 @@ def classic_worker_bundle() -> str:
     return f"""
 globalThis.__BMX_WASM_URL=__BMX_WASM_URL__;
 const initOC=(()=>{{{oc}}})();
-const REPLICAD=(()=>{{{replicad}\nreturn {{setOC,Sketcher,makeHelix,genericSweep,getOC,cast}};}})();
-const PARAMS=(()=>{{{params}\nreturn {{parameters,axialProfile,rootProfile}};}})();
-const MESH=(()=>{{{mesh}\nreturn {{binarySTL,conformCADMesh}};}})();
+const REPLICAD=(()=>{{{replicad}\nreturn {{setOC,Sketcher,makeHelix,genericSweep,makeBox,getOC,cast}};}})();
+const PARAMS=(()=>{{{params}\nreturn {{parameters,axialProfile,rootProfile,threadSeams}};}})();
+const MESH=(()=>{{{mesh}\nreturn {{binarySTL,conformCADMesh,validateMesh,readSTL}};}})();
 const CAD=(()=>{{
-  const {{Sketcher,getOC,cast}}=REPLICAD;
+  const {{Sketcher,makeHelix,genericSweep,makeBox,getOC,cast}}=REPLICAD;
   const {{parameters,axialProfile,rootProfile}}=PARAMS;
   {cad}
   return {{buildBody}};
@@ -47,7 +47,8 @@ const CAD=(()=>{{
 (()=>{{
   const {{setOC}}=REPLICAD;
   const {{buildBody}}=CAD;
-  const {{binarySTL,conformCADMesh}}=MESH;
+  const {{threadSeams}}=PARAMS;
+  const {{binarySTL,conformCADMesh,validateMesh,readSTL}}=MESH;
   {worker}
 }})();
 """

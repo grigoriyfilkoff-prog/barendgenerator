@@ -43,7 +43,8 @@ export function previewGeometry(input) {
   });
   const lower=[];
   for(let z=0;z<p.slotStart;z+=p.threadPitch/8)lower.push(z);
-  lower.push(p.slotStart);
+  lower.push(p.entryR,p.threadStart,p.slotStart);
+  lower.sort((a,b)=>a-b);
   lower.reverse();
   surface(lower.length-1,angularSteps*4,(u,row)=>{
     const angle=u*Math.PI*2,z=lower[row];return polar(boreRadius(p,z,angle),angle,z);

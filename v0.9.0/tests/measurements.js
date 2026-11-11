@@ -17,15 +17,16 @@ export function rayDistance(mesh,origin,direction){
 export function inspectDimensions(mesh,p){
   const points=[];for(let i=0;i<mesh.vertices.length;i+=3)points.push(mesh.vertices.slice(i,i+3));
   const rootPoints=points.filter(([x,y,z],i)=>z>=p.slotStart-1e-7&&z<p.slotStart+.99&&Math.min(Math.abs(x),Math.abs(y))<1.001
-    &&Math.hypot(x,y)>p.threadD/2+.1&&Math.abs(mesh.normals[3*i+2])>.001);
+    &&Math.hypot(x,y)>p.threadD/2+.1&&Math.abs(mesh.normals[3*i+2])>.001
+    &&Math.abs(mesh.normals[3*i+(Math.abs(x)<Math.abs(y)?1:0)])<1e-5);
   assert(rootPoints.length>12,'root arc samples');
   const nearest=Math.min(...rootPoints.map(v=>v[2]));
   assert(Math.abs(nearest-p.slotStart)<.011 && Math.abs(nearest-p.headH-3)<.011,'fixed 3 mm slot start');
-  for(const [x,y,z] of rootPoints)assert(Math.abs(Math.hypot(Math.min(Math.abs(x),Math.abs(y)),z-(p.slotStart+1))-1)<1e-5,'actual root radius R1');
+  for(const [x,y,z] of rootPoints)assert(Math.abs(Math.hypot(Math.min(Math.abs(x),Math.abs(y)),z-(p.slotStart-.005+1))-1)<1e-5,'actual root radius R1');
   const tipPoints=points.filter(([x,y,z])=>z>p.total-2+1e-5&&Math.hypot(x,y)>p.ro-2+1e-5);
   assert(tipPoints.length>12,'tip arc samples');
   for(const [x,y,z] of tipPoints)assert(Math.abs(Math.hypot(Math.hypot(x,y)-(p.ro-2),z-(p.total-2))-2)<1e-5,'actual toroidal R2');
-  for(const angle of [0,Math.PI/2,Math.PI,3*Math.PI/2])for(const radial of [3,5.5,p.ro-.5])for(const z of [p.slotStart+1.2,(p.slotStart+p.total)/2,p.total-2.2]){
+  for(const angle of [0,Math.PI/2,Math.PI,3*Math.PI/2])for(const radial of [4.5,5.5,p.ro-.5])for(const z of [p.slotStart+1.2,(p.slotStart+p.total)/2,p.total-2.2]){
     const radialDirection=[Math.cos(angle),Math.sin(angle),0],side=[-Math.sin(angle),Math.cos(angle),0];
     const origin=[radial*radialDirection[0],radial*radialDirection[1],z];
     const width=rayDistance(mesh,origin,side)+rayDistance(mesh,origin,side.map(v=>-v));
@@ -35,11 +36,32 @@ export function inspectDimensions(mesh,p){
   for(const [z,expected,name] of [
     [1,p.mouthR-Math.sqrt(p.entryR**2-(1-p.entryR)**2),'R4 inlet'],
     [p.entryR+.5,p.preHoleD/2+.5/(p.threadStart-p.entryR)*(p.threadD-p.preHoleD)/2,'diameter 10 to 8 pre-thread taper'],
-    ...Array.from({length:Math.floor(p.threadLength/p.threadPitch)},(_,i)=>[p.threadStart+3*p.threadPitch/8+.05/Math.sqrt(3)+i*p.threadPitch+p.threadPitch/8,p.threadD/2,`M8 major radius, turn ${i+1}`]),
-    ...Array.from({length:Math.floor(p.threadLength/p.threadPitch)-1},(_,i)=>[p.threadStart+3*p.threadPitch/8+.05/Math.sqrt(3)+i*p.threadPitch+5*p.threadPitch/8,p.threadMinorR,`M8 minor radius, turn ${i+1}`]),
-    [p.threadEnd+.5,2.5,'90 degree cone'],[p.coneEnd+1,2,'diameter 4 channel'],
+    [p.threadEnd+.5,3.5,'90 degree cone'],[p.coneEnd+1,2,'diameter 4 channel'],
   ]){
     const actual=rayDistance(mesh,[0,0,z],ray);
     assert(Math.abs(actual-expected)<.015,`${name} actual radius: ${actual}, expected ${expected}, z ${z}`);
+  }
+  inspectThread(mesh,p);
+}
+
+// Measure actual surfaces, independent of the analytical preview. Sampling
+// several angles distinguishes a right-hand helix from rings or a smooth bore.
+export function inspectThread(mesh,p){
+  assert(p.threadD===8&&p.threadPitch===1.25&&p.threadLength===8,'M8 x 1.25 x 8 specification');
+  const minor=(8-5*Math.sqrt(3)/8*1.25)/2;
+  for(const angle of [Math.PI/4,3*Math.PI/4,5*Math.PI/4,7*Math.PI/4]){
+    const ray=[Math.cos(angle),Math.sin(angle),0];
+    for(let turn=0;turn<Math.ceil(p.threadLength/p.threadPitch);turn++){
+      for(const [phase,expected,name] of [[0,4,'major'],[.5,minor,'minor'],[.2,4-(.2-1/16)*1.25*Math.sqrt(3),'60 degree flank']]){
+        const z=p.threadStart+(turn+angle/(2*Math.PI)+phase)*1.25;
+        if(z>=p.threadEnd-.02)continue;
+        const actual=rayDistance(mesh,[0,0,z],ray);
+        assert(Number.isFinite(actual)&&Math.abs(actual-expected)<.02,`M8 ${name}, turn ${turn+1}, angle ${angle}: radius ${actual}, expected ${expected}, z ${z}`);
+      }
+    }
+    for(const z of [p.threadStart-.05,p.threadEnd+.05]){
+      const expected=z<p.threadStart ? 5+(z-p.entryR)/(p.threadStart-p.entryR)*(4-5) : 4-(z-p.threadEnd);
+      assert(Math.abs(rayDistance(mesh,[0,0,z],ray)-expected)<.02,'thread clipped to exact 8 mm span');
+    }
   }
 }

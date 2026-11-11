@@ -1,0 +1,22 @@
+<!doctype html><meta charset="utf-8"><script type="module">
+import initOC from '../vendor/replicad_with_exceptions.js';
+import {setOC,deserializeShape} from '../vendor/replicad.js';
+import {conformCADMesh,validateMesh,binarySTL,readSTL} from '../mesh.js';
+import {parameters,threadSeams} from '../parameters.js';
+import {inspectDimensions} from './measurements.js';
+const query=new URLSearchParams(location.search);
+try{
+  const oc=await initOC({locateFile:()=>new URL('../vendor/replicad_with_exceptions.wasm',import.meta.url).href});setOC(oc);
+  const body=deserializeShape(await(await fetch('./debug-body.brep')).text());
+  try{
+    if(query.has('same'))oc.BRepLib.SameParameter_3(body.wrapped,1e-6,true);
+    oc.BRepTools.Clean(body.wrapped,true);
+    const source=body.mesh({tolerance:Number(query.get('mesh')||.01),angularTolerance:Number(query.get('angle')||.15)});
+    const {mesh,repair}=conformCADMesh(source,.002,{circularSeams:threadSeams(parameters())}),report=validateMesh(mesh,{details:query.has('details')});
+    report.stlValid=validateMesh(readSTL(binarySTL(mesh))).ok;
+    try{inspectDimensions(mesh,parameters());}catch(e){report.dimensionError=String(e);}
+    await fetch('/artifact/debug-conformed.json',{method:'POST',body:JSON.stringify(mesh)});
+    await fetch('/test-result',{method:'POST',body:JSON.stringify({done:true,ok:report.ok&&report.stlValid&&!report.dimensionError,report,repair})});
+  }finally{body.delete();}
+}catch(e){await fetch('/test-result',{method:'POST',body:JSON.stringify({done:true,ok:false,error:String(e.stack||e)})});}
+</script>

@@ -4,10 +4,12 @@ const cross = (a, b) => [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1
 
 // Conform tessellation seams of a *validated CAD body*, within a much smaller
 // distance than the 0.01 mm meshing tolerance. Never fill a general mesh hole.
-export function conformCADMesh(source,tolerance=.002){
+export function conformCADMesh(source,tolerance=.002,{circularSeams=[]}={}){
   const mesh={...source,vertices:[...source.vertices],normals:[...source.normals]}, ids=[],points=[],buckets=new Map();
   const weldTolerance=.0001;
-  const repair={weldTolerance,tolerance,maxDeviation:0,collapsedTriangles:0,splitEdges:0};
+  const repair={weldTolerance,tolerance,maxDeviation:0,collapsedTriangles:0,splitEdges:0,circularSplitEdges:0,maxCircularSagitta:0,removedThreadCapTriangles:0};
+  const angleDelta=(a,b)=>Math.atan2(Math.sin(b-a),Math.cos(b-a));
+  const onCircle=(p,s)=>Math.abs(p[2]-s.z)<weldTolerance&&Math.abs(Math.hypot(p[0],p[1])-s.radius)<weldTolerance;
   for(let i=0;i<mesh.vertices.length;i+=3){
     const p=mesh.vertices.slice(i,i+3),cell=p.map(v=>Math.floor(v/weldTolerance));let id;
     search:for(let x=-1;x<=1;x++)for(let y=-1;y<=1;y++)for(let z=-1;z<=1;z++)for(const n of buckets.get(`${cell[0]+x},${cell[1]+y},${cell[2]+z}`)||[]){
@@ -20,9 +22,17 @@ export function conformCADMesh(source,tolerance=.002){
   const faces=[];
   for(let i=0;i<source.triangles.length;i+=3){
     const face=source.triangles.slice(i,i+3);
+    // A tangent thread cutter can leave a zero-area CAD cap on its major
+    // circle. Triangulating that cap fills a circular segment inside the
+    // known bore. Remove only caps entirely in the specified root plateau.
+    const voidCap=circularSeams.some(s=>s.voidHalfAngle&&face.every(n=>{
+      const p=points[ids[n]];
+      return onCircle(p,s)&&Math.abs(angleDelta(s.voidCenterAngle||0,Math.atan2(p[1],p[0])))<=s.voidHalfAngle+weldTolerance;
+    }));
+    if(voidCap){repair.removedThreadCapTriangles++;continue;}
     if(new Set(face.map(n=>ids[n])).size<3)repair.collapsedTriangles++;else faces.push(face);
   }
-  for(let pass=0;pass<8;pass++){
+  for(let pass=0;pass<256;pass++){
     const edges=new Map();
     faces.forEach((f,index)=>{for(let j=0;j<3;j++){
       const a=ids[f[j]],b=ids[f[(j+1)%3]],key=`${Math.min(a,b)},${Math.max(a,b)}`;
@@ -32,13 +42,16 @@ export function conformCADMesh(source,tolerance=.002){
     const candidates=[...new Set(boundary.flatMap(e=>[e.a,e.b]))];let split=false;
     for(const edge of boundary){
       const face=faces[edge.index],a=points[edge.a],b=points[edge.b],ab=sub(b,a),length2=dot(ab,ab);
+      const circle=circularSeams.find(s=>onCircle(a,s)&&onCircle(b,s));
+      const startAngle=Math.atan2(a[1],a[0]),sweep=angleDelta(startAngle,Math.atan2(b[1],b[0]));
       const cuts=[];
       for(const id of candidates){
         if(face.some(n=>ids[n]===id))continue;
-        const t=dot(sub(points[id],a),ab)/length2;
+        const circular=circle&&Math.abs(sweep)<Math.PI/2&&onCircle(points[id],circle);
+        const t=circular?angleDelta(startAngle,Math.atan2(points[id][1],points[id][0]))/sweep:dot(sub(points[id],a),ab)/length2;
         if(t<=1e-5||t>=1-1e-5)continue;
         const d=Math.hypot(...sub(points[id],a.map((v,k)=>v+t*ab[k])));
-        if(d<=tolerance)cuts.push({id,t,d});
+        if(circular||d<=tolerance)cuts.push({id,t,d,circular});
       }
       if(!cuts.length)continue;
       cuts.sort((a,b)=>a.t-b.t);
@@ -47,7 +60,8 @@ export function conformCADMesh(source,tolerance=.002){
         const n=mesh.vertices.length/3;mesh.vertices.push(...points[cut.id]);ids.push(cut.id);
         const normal=[0,1,2].map(k=>mesh.normals[first*3+k]*(1-cut.t)+mesh.normals[last*3+k]*cut.t),len=Math.hypot(...normal);
         mesh.normals.push(...normal.map(v=>v/len));chain.push(n);
-        repair.maxDeviation=Math.max(repair.maxDeviation,cut.d);
+        if(cut.circular){repair.circularSplitEdges++;repair.maxCircularSagitta=Math.max(repair.maxCircularSagitta,cut.d);}
+        else repair.maxDeviation=Math.max(repair.maxDeviation,cut.d);
       }
       chain.push(last);faces[edge.index]=[chain[0],chain[1],third];
       for(let k=1;k<chain.length-1;k++)faces.push([chain[k],chain[k+1],third]);
@@ -74,7 +88,7 @@ function intersects(a, b) {
   return true;
 }
 
-export function validateMesh(mesh, { checkIntersections = true } = {}) {
+export function validateMesh(mesh, { checkIntersections = true, details = false } = {}) {
   const { vertices, triangles } = mesh;
   if (!vertices.length || vertices.length % 3 || !triangles.length || triangles.length % 3) throw new Error('Пустая или некорректная сетка');
   if (!vertices.every(Number.isFinite)) throw new Error('Неконечные координаты сетки');
@@ -127,7 +141,7 @@ export function validateMesh(mesh, { checkIntersections = true } = {}) {
     components++; const stack=[i]; seen.add(i);
     while(stack.length) for(const n of adjacency[stack.pop()]) if(!seen.has(n)){seen.add(n);stack.push(n);}
   }
-  let intersections=0;
+  let intersections=0;const intersectionPairs=[];
   if(checkIntersections) {
     const sorted=[...ts].sort((a,b)=>a.min[0]-b.min[0]);
     for(let i=0;i<sorted.length;i++) for(let j=i+1;j<sorted.length;j++) {
@@ -137,12 +151,13 @@ export function validateMesh(mesh, { checkIntersections = true } = {}) {
       // Shared vertices/edges are legitimate mesh contacts. CAD validity is
       // checked separately; this scan checks non-adjacent triangle pairs.
       if(a.ids.some(id=>b.ids.includes(id))) continue;
-      if(intersects(a.ps,b.ps)) intersections++;
+      if(intersects(a.ps,b.ps)){intersections++;if(details&&intersectionPairs.length<30)intersectionPairs.push([a.ps,b.ps]);}
     }
   }
   const result={triangles:ts.length,vertices:points.length,volume,boundary,nonManifold,badOrientation,components,degenerate,duplicates,intersections,
     bounds:{min:[0,1,2].map(k=>Math.min(...points.map(p=>p[k]))),max:[0,1,2].map(k=>Math.max(...points.map(p=>p[k])))}};
   result.ok=components===1 && volume>0 && !boundary && !nonManifold && !badOrientation && !degenerate && !duplicates && !intersections;
+  if(details)result.intersectionPairs=intersectionPairs;
   return result;
 }
 

@@ -42,6 +42,7 @@ export function parameters(input = DEFAULTS) {
   p.threadCenter = p.slotStart;
   p.threadStart = p.threadCenter - p.threadLength/2;
   p.threadEnd = p.threadStart + p.threadLength;
+  p.threadMinorR = p.threadD/2 - 5*Math.sqrt(3)/16*p.threadPitch;
   p.coneLength = (p.threadD-p.holeD)/2/Math.tan(p.coneAngle*Math.PI/360);
   p.coneEnd = p.threadEnd + p.coneLength;
   p.mouthR = p.preHoleD/2 + p.entryR;
@@ -77,6 +78,8 @@ export function axialProfile(p) {
     { kind: 'line', end: [p.ri, p.total] },
     { kind: 'line', end: [p.ri, p.coneEnd] },
     { kind: 'line', end: [p.threadD/2, p.threadEnd] },
+    { kind: 'line', end: [p.threadMinorR, p.threadEnd] },
+    { kind: 'line', end: [p.threadMinorR, p.threadStart] },
     { kind: 'line', end: [p.threadD/2, p.threadStart] },
     { kind: 'line', end: [p.preHoleD/2, p.entryR] },
     { kind: 'arc', end: [p.mouthR, 0], mid: [p.mouthR-p.entryR*q,p.entryR*(1-q)], radius:p.entryR });
@@ -92,7 +95,10 @@ export function boreRadius(p,z,angle=0) {
     const t=(z-p.entryR)/(p.threadStart-p.entryR);
     return p.preHoleD/2+t*(p.threadD-p.preHoleD)/2;
   }
-  return p.threadD/2;
+  // A groove centre advances in +Z for increasing angle (right-hand helix).
+  const phase=(z-p.threadStart)/p.threadPitch-angle/(2*Math.PI);
+  const distance=Math.abs(phase-Math.round(phase))*p.threadPitch;
+  return Math.max(p.threadMinorR,p.threadD/2-Math.max(0,distance-p.threadPitch/16)*Math.sqrt(3));
 }
 
 export function rootProfile(p) {
@@ -102,5 +108,13 @@ export function rootProfile(p) {
     { kind: 'arc', end: [p.slotW / 2, z], mid: [0, p.slotStart], radius: p.rootR },
     { kind: 'line', end: [p.slotW / 2, p.total + 3] },
     { kind: 'line', end: [-p.slotW / 2, p.total + 3] },
+  ];
+}
+
+// Exact circles and root plateaus used to conform CAD tessellation seams.
+export function threadSeams(p){
+  return [
+    {z:p.threadStart,radius:p.threadD/2,voidHalfAngle:Math.PI/8},
+    {z:p.threadEnd,radius:p.threadD/2,voidHalfAngle:Math.PI/8,voidCenterAngle:2*Math.PI*p.threadLength/p.threadPitch},
   ];
 }
